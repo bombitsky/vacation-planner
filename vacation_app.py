@@ -9,7 +9,7 @@ load_dotenv()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-key-12345')
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres@localhost:5432/vacation_planner'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'postgresql://postgres@localhost:5432/vacation_planner')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -353,7 +353,7 @@ MAIN_TEMPLATE = '''
                                 <td>{{ tour.ticket_status }}</td>
                                 <td>{{ tour.plan or '-' }}</td>
                                 <td>
-                                    <a href="/tickets/toggle/{{ tour.id }}" class="btn btn-sm btn-soft-warning">🎫</a>
+                                    <a href="/tickets/toggle/{{ tour.id }}" class="btn btn-sm btn-soft-warning" title="Изменить статус билетов (куплены/не куплены)">🎫 Статус</a>
                                     <a href="/tour/delete/{{ tour.id }}" class="btn btn-sm btn-soft-danger" onclick="return confirm('Удалить?')">🗑️</a>
                                 </td>
                             </tr>
@@ -362,18 +362,35 @@ MAIN_TEMPLATE = '''
                     </table>
                 </div>
                 <h3 class="h5 mt-3">➕ Добавить тур</h3>
-                <form action="/tour/add" method="post" class="row g-2">
-                    <div class="col-md-3"><input type="text" name="place" class="form-control" placeholder="Место" required></div>
-                    <div class="col-md-2"><input type="date" name="date" class="form-control" required></div>
-                    <div class="col-md-2"><input type="text" name="agency" class="form-control" placeholder="Агентство"></div>
-                    <div class="col-md-2">
-                        <select name="ticket_status" class="form-select">
-                            <option value="не куплены">не куплены</option>
-                            <option value="куплены">куплены</option>
-                        </select>
+                <form action="/tour/add" method="post">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold">Место</label>
+                            <input type="text" name="place" class="form-control" required>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-bold">Дата</label>
+                            <input type="date" name="date" class="form-control" required>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-bold">Агентство</label>
+                            <input type="text" name="agency" class="form-control" placeholder="Опционально">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-bold">Статус билетов</label>
+                            <select name="ticket_status" class="form-select">
+                                <option value="не куплены">❌ не куплены</option>
+                                <option value="куплены">✅ куплены</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold">План действий</label>
+                            <input type="text" name="plan" class="form-control" placeholder="Опционально">
+                        </div>
+                        <div class="col-12 mt-3">
+                            <button class="btn btn-soft-success">➕ Добавить тур</button>
+                        </div>
                     </div>
-                    <div class="col-md-3"><input type="text" name="plan" class="form-control" placeholder="План (опционально)"></div>
-                    <div class="col-12"><button class="btn btn-soft-success">➕ Добавить тур</button></div>
                 </form>
             </div>
         </div>
@@ -557,6 +574,14 @@ def tour_delete(tour_id):
     db.session.delete(tour)
     db.session.commit()
     return redirect('/')
+
+def create_tables():
+    with app.app_context():
+        db.create_all()
+        print("✅ Таблицы проверены/созданы")
+
+# Вызываем при старте приложения (даже в Gunicorn)
+create_tables()
 
 # ========== ЗАПУСК ==========
 if __name__ == '__main__':
