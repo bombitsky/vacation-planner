@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/vacation_planner
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key}
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  db:
+    image: postgres:15
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=vacation_planner
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
