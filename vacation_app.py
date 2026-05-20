@@ -181,6 +181,12 @@ LOGIN_PAGE = '''
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <h2 class="card-title mb-0">Вход</h2>
                             <button class="btn btn-sm btn-outline-secondary" onclick="toggleTheme()" id="themeBtn">🌙 Тёмная тема</button>
+                            {% if error %}
+                            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                                {{ error }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                            {% endif %}
                         </div>
                         <form method="post">
                             <div class="mb-3">
@@ -341,7 +347,7 @@ MAIN_TEMPLATE = '''
                     <table class="table table-striped">
                         <thead>
                             <tr>
-                                <th>Место</th><th>Дата</th><th>Агентство</th><th>Билеты</th><th>План</th><th>Действия</th>
+                                <th>Место</th><th>Дата</th><th>Агентство</th><th>Билеты</th><th>Плюсы</th><th>Минусы</th><th>Действия</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -351,10 +357,11 @@ MAIN_TEMPLATE = '''
                                 <td>{{ tour.date }}</td>
                                 <td>{{ tour.agency or '-' }}</td>
                                 <td>{{ tour.ticket_status }}</td>
-                                <td>{{ tour.plan or '-' }}</td>
+                                <td style="white-space: pre-wrap;">{{ tour.pros or '-' }}</td>
+                                <td style="white-space: pre-wrap;">{{ tour.cons or '-' }}</td>
                                 <td>
-                                    <a href="/tickets/toggle/{{ tour.id }}" class="btn btn-sm btn-soft-warning" title="Изменить статус билетов (куплены/не куплены)">🎫 Статус</a>
-                                    <a href="/tour/delete/{{ tour.id }}" class="btn btn-sm btn-soft-danger" onclick="return confirm('Удалить?')">🗑️</a>
+                                    <a href="/tour/edit/{{ tour.id }}" class="btn btn-sm btn-soft-primary mb-1">✏️ Редактировать</a><br>
+                                    <a href="/tour/delete/{{ tour.id }}" class="btn btn-sm btn-soft-danger" onclick="return confirm('Удалить тур?')">🗑️ Удалить</a>
                                 </td>
                             </tr>
                             {% endfor %}
@@ -363,7 +370,7 @@ MAIN_TEMPLATE = '''
                 </div>
                 <h3 class="h5 mt-3">➕ Добавить тур</h3>
                 <form action="/tour/add" method="post">
-                    <div class="row g-2 align-items-end">
+                    <div class="row g-2">
                         <div class="col-md-3">
                             <label class="form-label small fw-bold">Место</label>
                             <input type="text" name="place" class="form-control" required>
@@ -383,13 +390,19 @@ MAIN_TEMPLATE = '''
                                 <option value="куплены">✅ куплены</option>
                             </select>
                         </div>
-                        <div class="col-md-3">
-                            <label class="form-label small fw-bold">План действий</label>
-                            <input type="text" name="plan" class="form-control" placeholder="Опционально">
+                    </div>
+                    <div class="row g-2 mt-2">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Плюсы</label>
+                            <textarea name="pros" class="form-control" rows="3" placeholder="Что хорошо? (каждый пункт с новой строки)"></textarea>
                         </div>
-                        <div class="col-12 mt-3">
-                            <button class="btn btn-soft-success">➕ Добавить тур</button>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Минусы</label>
+                            <textarea name="cons" class="form-control" rows="3" placeholder="Что плохо? (каждый пункт с новой строки)"></textarea>
                         </div>
+                    </div>
+                    <div class="mt-3">
+                        <button class="btn btn-soft-success">➕ Добавить тур</button>
                     </div>
                 </form>
             </div>
@@ -409,7 +422,89 @@ MAIN_TEMPLATE = '''
 </body>
 </html>
 '''
-
+EDIT_TOUR_PAGE = '''
+<!DOCTYPE html>
+<html lang="ru" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Редактирование тура</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { transition: background-color 0.3s, color 0.3s; }
+        [data-bs-theme="dark"] body { background-color: #1a1a2e; color: #eee; }
+        [data-bs-theme="dark"] .card { background-color: #16213e; border-color: #0f3460; }
+    </style>
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme) {
+                document.documentElement.setAttribute('data-bs-theme', savedTheme);
+            }
+        })();
+        function toggleTheme() {
+            const html = document.documentElement;
+            const current = html.getAttribute('data-bs-theme');
+            const newTheme = current === 'light' ? 'dark' : 'light';
+            html.setAttribute('data-bs-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            const btn = document.getElementById('themeBtn');
+            if (btn) btn.textContent = newTheme === 'light' ? '🌙 Тёмная тема' : '☀️ Светлая тема';
+        }
+    </script>
+</head>
+<body>
+    <div class="container py-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>✏️ Редактирование тура</h2>
+            <button class="btn btn-sm btn-outline-secondary" onclick="toggleTheme()" id="themeBtn">🌙 Тёмная тема</button>
+        </div>
+        
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <form method="post">
+                    <div class="mb-3">
+                        <label class="form-label">Место</label>
+                        <input type="text" name="place" class="form-control" value="{{ tour.place }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Дата</label>
+                        <input type="date" name="date" class="form-control" value="{{ tour.date }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Агентство</label>
+                        <input type="text" name="agency" class="form-control" value="{{ tour.agency or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Статус билетов</label>
+                        <select name="ticket_status" class="form-select">
+                            <option value="не куплены" {% if tour.ticket_status == 'не куплены' %}selected{% endif %}>❌ не куплены</option>
+                            <option value="куплены" {% if tour.ticket_status == 'куплены' %}selected{% endif %}>✅ куплены</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Плюсы</label>
+                        <textarea name="pros" class="form-control" rows="4">{{ tour.pros or '' }}</textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Минусы</label>
+                        <textarea name="cons" class="form-control" rows="4">{{ tour.cons or '' }}</textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">💾 Сохранить</button>
+                    <a href="/" class="btn btn-secondary">Отмена</a>
+                </form>
+            </div>
+        </div>
+    </div>
+    <script>
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme) {
+            document.getElementById('themeBtn').textContent = savedTheme === 'light' ? '🌙 Тёмная тема' : '☀️ Светлая тема';
+        }
+    </script>
+</body>
+</html>
+'''
 # ========== МАРШРУТЫ ==========
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -434,6 +529,7 @@ def register():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    error = None
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
@@ -441,9 +537,10 @@ def login():
         if user and user.check_password(password):
             login_user(user)
             return redirect('/')
-        return 'Неверный логин или пароль', 401
+        else:
+            error = 'Неверный логин или пароль'
     
-    return render_template_string(LOGIN_PAGE)
+    return render_template_string(LOGIN_PAGE, error=error)
 
 @app.route('/logout')
 @login_required
@@ -461,6 +558,24 @@ def delete_account():
     db.session.commit()
     logout_user()
     return redirect('/login')
+
+@app.route('/tour/edit/<int:tour_id>', methods=['GET', 'POST'])
+@login_required
+def tour_edit(tour_id):
+    tour = Tour.query.filter_by(id=tour_id, user_id=current_user.id).first_or_404()
+    
+    if request.method == 'POST':
+        tour.place = request.form.get('place')
+        tour.date = date.fromisoformat(request.form.get('date'))
+        tour.agency = request.form.get('agency')
+        tour.ticket_status = request.form.get('ticket_status')
+        tour.plan = request.form.get('plan')
+        tour.pros = request.form.get('pros')
+        tour.cons = request.form.get('cons')
+        db.session.commit()
+        return redirect('/')
+    
+    return render_template_string(EDIT_TOUR_PAGE, tour=tour)
 
 @app.route('/')
 @login_required
@@ -550,8 +665,7 @@ def tour_add():
         place=request.form.get('place', ''),
         date=date.fromisoformat(request.form.get('date')),
         agency=request.form.get('agency', ''),
-        ticket_status=request.form.get('ticket_status', 'не куплены'),
-        plan=request.form.get('plan', ''),
+        ticket_status=request.form.get('ticket_status', 'не куплены'),      
         pros=request.form.get('pros', ''),
         cons=request.form.get('cons', '')
     )
